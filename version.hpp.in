@@ -1,0 +1,9 @@
+#ifndef VERSION_HPP
+#define VERSION_HPP
+
+#define APP_NAME      "Ada Beautify"
+#define APP_VERSION   "@ada_beautify_VERSION@"
+#define APP_COPYRIGHT "2024 DF9RY"
+#define APP_WEBSITE   "https://df9ry.de"
+
+#endif // VERSION_HPP
