@@ -1,0 +1,29 @@
+with Ada.Text_IO;
+
+procedure test is
+begin
+                  loop
+                     case nodet is
+                        when 10 => if yval < (yend -
+                                                Round ((ix - xbeg) * slope))
+                     then
+                        white_out (i, ix);
+                     end if;
+                     when 12 => if yval < (ybeg + Round ((ix - xbeg) * slope))
+                     then
+                        white_out (i, ix);
+                     end if;
+                     when 5 => if yval > (yend - Round ((ix - xbeg) * slope))
+                     then
+                        white_out (i, ix);
+                     end if;
+                     when 3 => if yval > (ybeg + Round ((ix - xbeg) * slope))
+                     then
+                        white_out (i, ix);
+                     end if;
+                     --  [P2Ada]: no otherwise / else in Pascal
+                     when others => null;
+                  end case;
+		end loop;
+end test;
+ 

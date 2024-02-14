@@ -46,50 +46,52 @@ int main(int argc, char *argv[])
     bool helped{false};
     int  verbose{0};
 
-    // Get options:
-    while ((option = getopt(argc, argv, "i:o:hv")) >= 0) {
-        switch (option) {
-        case 'i':
-            if (input_file.empty()) {
-                input_file = optarg;
-                break;
-            } else {
-                help(argv[0]);
-                return EXIT_FAILURE;
-            }
-        case 'o':
-            if (output_file.empty()) {
-                output_file = optarg;
-                break;
-            } else {
-                help(argv[0]);
-                return EXIT_FAILURE;
-            }
-        case 'h':
-            help(argv[0]);
-            return EXIT_SUCCESS;
-        case 'v':
-            ++ verbose;
-            break;
-        default:
-            if (helped) {
-                break;
-            } else {
-                help(argv[0]);
-                helped = true;
-            }
-        } // end switch //
-    } // end while //
-
-    if (verbose)
-        cerr << APP_NAME << " " << APP_VERSION << endl;
-
     try {
+        // Get options:
+        while ((option = getopt(argc, argv, "i:o:hv")) >= 0) {
+            switch (option) {
+            case 'i':
+                if (input_file.empty()) {
+                    input_file = optarg;
+                    if (!is_regular_file(input_file))
+                        throw runtime_error(string("File not found: \"") +
+                                            input_file.c_str() + "\"");
+                    break;
+                } else {
+                    help(argv[0]);
+                    return EXIT_FAILURE;
+                }
+            case 'o':
+                if (output_file.empty()) {
+                    output_file = optarg;
+                    break;
+                } else {
+                    help(argv[0]);
+                    return EXIT_FAILURE;
+                }
+            case 'h':
+                help(argv[0]);
+                return EXIT_SUCCESS;
+            case 'v':
+                ++ verbose;
+                break;
+            default:
+                if (helped) {
+                    break;
+                } else {
+                    help(argv[0]);
+                    helped = true;
+                }
+            } // end switch //
+        } // end while //
+
+        if (verbose)
+            cerr << APP_NAME << " " << APP_VERSION << endl;
+
         istream& is{input_file.empty() ? cin : open_input(input_file)};
         ostream& os{output_file.empty() ? cout : open_output(output_file)};
 
         Symbol::open(is);
-        while (!Symbol::get()); // Start reading
 
         Formatter formatter;
         Symbol::Ref sym;

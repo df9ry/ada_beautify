@@ -13,6 +13,7 @@ void Symbol::open(std::istream& is) {
     if (sc)
         throw std::runtime_error("Input stream already open");
     sc = new scanner(is);
+    get();
 }
 
 const Symbol::Ref Symbol::get() {
