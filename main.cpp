@@ -38,13 +38,14 @@ static void help(const char *name)
          << "\t-v ................. Verbose" << endl;
 }
 
+int verbose{0};
+
 int main(int argc, char *argv[])
 {
     int option{0};
     path input_file{""};
     path output_file{""};
     bool helped{false};
-    int  verbose{0};
 
     try {
         // Get options:

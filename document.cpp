@@ -4,6 +4,8 @@
 #include <iostream>
 #include <array>
 
+extern int verbose;
+
 using namespace std;
 
 static array<char, Document::maxIndent + 1> space;
@@ -54,6 +56,7 @@ static void handleSemicolon(const string& token, Document& doc)
     // And output the line:
     newLine(scope);
     if (scope.end) { // Copy everything over to doc:
+        scope.end = false;
         copyOver(doc);
         doc.closeScope();
     }
@@ -157,6 +160,26 @@ static void handleAndThen(const string& token, Document& doc) {
     scope.dot = true;
 }
 
+static void handleArrow(const string& token, Document& doc) {
+    Scope& scope = doc.scope();
+    if (scope.lineBuffer.str().empty())
+        scope.lineBuffer << doc.indent() << token;
+    else
+        scope.lineBuffer << (scope.dot ? "" : " ") << token;
+    newLine(scope);
+    copyOver(doc);
+    doc.openScope();
+}
+
+static void handleWhen(const string& token, Document& doc) {
+    Scope& scope = doc.scope();
+    if (!scope.is) {
+        copyOver(doc);
+        doc.closeScope();
+    }
+    handleIdentifier(token, doc);
+}
+
 const Document::handlerMapType Document::handlerMap {
     { "begin",     handleBegin     },
     { "end",       handleEnd       },
@@ -164,6 +187,9 @@ const Document::handlerMapType Document::handlerMap {
     { "is",        handleIs        },
     { "loop",      handleLoop      },
     { "then",      handleBegin     },
+    { "and then",  handleAndThen   },
+    { "or else",   handleAndThen   },
+    { "when",      handleWhen      },
     { ";",         handleSemicolon },
     { ".",         handleDot       },
     { ",",         handleNoLeft    },
@@ -171,8 +197,7 @@ const Document::handlerMapType Document::handlerMap {
     { "(",         handleNoRight   },
     { "<<",        handleNoRight   },
     { ">>",        handleNoLeft    },
-    { "and then",  handleAndThen   },
-    { "or else",   handleAndThen   },
+    { "=>",        handleArrow     },
 };
 
 Document::Document() {
@@ -232,6 +257,11 @@ void Document::print(std::ostream& os) const
     });
 }
 
+void Document::clear()
+{
+    lines.clear();
+}
+
 Scope& Document::scope()
 {
     if (stack.empty())
@@ -242,6 +272,16 @@ Scope& Document::scope()
 Scope& Document::openScope()
 {
     stack.push(Scope(*this));
+    if (verbose)
+        lines.push_back(
+            string("--  << New Scope Level ") + to_string(level()) + " >>");
+    if (verbose > 1)
+        cerr << "--  << New Scope Level " << level() << " >>" << endl;
+    if (verbose > 2) {
+        for_each(lines.begin(), lines.end(), [] (auto line) {
+            cerr << "line = " << line << endl;
+        });
+    }
     return stack.top();
 }
 
@@ -249,5 +289,10 @@ void Document::closeScope()
 {
     if (stack.size() == 0)
         throw runtime_error("stack underflow");
+    if (verbose)
+        lines.push_back(
+            string("--  << End Scope Level ") + to_string(level()) + " >>");
+    if (verbose > 1)
+        cerr << "--  << End Scope Level " << level() << " >>" << endl;
     stack.pop();      // On regular end
 }

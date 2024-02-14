@@ -76,16 +76,20 @@ void Formatter::print(std::ostream& os)
     {
         try {
             doc->put(*sym);
+            doc->print(os);
+            doc->clear();
         }
         catch (const exception& ex) {
             cerr << "Warning: " << ex.what() << endl;
             doc->print(os);
+            doc->clear();
             os << endl << "--  <<END OF DOCUMENT>>  --" << endl;
             doc = shared_ptr<Document>{ new Document() };
         }
         catch (...) {
             cerr << "Warning: Unknown failure" << endl;
             doc->print(os);
+            doc->clear();
             os << endl << "--  <<END OF DOCUMENT>>  --" << endl;
             doc = shared_ptr<Document>{ new Document() };
         }

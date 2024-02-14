@@ -19,15 +19,19 @@ public:
     static const int maxIndent = 80;
 
     Document();
+    Document(const Document&) = delete;
+    Document(Document&&) = delete;
 
     Scope& scope();
     const Scope& scope() const;
     void put(const Symbol& sym);
     void addComment(std::string comment);
     void print(std::ostream &os) const;
+    void clear();
     Scope& openScope();
     void closeScope();
     const std::string indent(int offset = 0) const;
+    int level() const { return stack.size(); }
 
     std::vector<std::string> lines{};
 
