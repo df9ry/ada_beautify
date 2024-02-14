@@ -6,7 +6,7 @@
 
 using namespace std;
 
-static array<char, Document::maxIndent> space;
+static array<char, Document::maxIndent + 1> space;
 
 static void copyOver(Document& doc)
 {
@@ -217,10 +217,11 @@ void Document::put(const Symbol& sym)
 
 const string Document::indent(int offset) const
 {
-    int count = min((stack.size() - 1 + offset) * spacesPerLevel,
-                    space.size() - 1);
-    count = max(count, 0);
-    //cerr << "Indent: " << count << endl;
+    int count = (stack.size() + offset) * spacesPerLevel;
+    if (count < 0)
+        count = 0;
+    if (count > maxIndent)
+        count = maxIndent;
     return string(&space[space.size() - 1 - count]);
 }
 
@@ -246,6 +247,7 @@ Scope& Document::openScope()
 
 void Document::closeScope()
 {
-    if (stack.size() > 1) // Avoid runtime failures
-        stack.pop();      // On regular end
+    if (stack.size() == 0)
+        throw runtime_error("stack underflow");
+    stack.pop();      // On regular end
 }

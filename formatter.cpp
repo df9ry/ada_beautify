@@ -2,6 +2,7 @@
 #include "document.hpp"
 
 #include <algorithm>
+#include <memory>
 
 using namespace std;
 
@@ -69,24 +70,24 @@ void Formatter::optimize()
 void Formatter::print(std::ostream& os)
 {
     optimize();
-    Document doc;
-    bool ok = true;
-    for_each(symbol_list.begin(), symbol_list.end(), [&doc, &ok] (const Symbol::Ref& sym) {
+    auto doc = shared_ptr<Document>(new Document());
+    for_each(symbol_list.begin(), symbol_list.end(),
+             [&doc, &os] (const Symbol::Ref& sym)
+    {
         try {
-            doc.put(*sym);
+            doc->put(*sym);
         }
         catch (const exception& ex) {
-            if (ok) {
-                cerr << "Warning: " << ex.what() << endl;
-                ok = false;
-            }
+            cerr << "Warning: " << ex.what() << endl;
+            doc->print(os);
+            os << endl << "--  <<END OF DOCUMENT>>  --" << endl;
+            doc = shared_ptr<Document>{ new Document() };
         }
         catch (...) {
-            if (ok) {
-                cerr << "Warning: Unknown failure" << endl;
-                ok = false;
-            }
+            cerr << "Warning: Unknown failure" << endl;
+            doc->print(os);
+            os << endl << "--  <<END OF DOCUMENT>>  --" << endl;
+            doc = shared_ptr<Document>{ new Document() };
         }
     });
-    doc.print(os);
 }
