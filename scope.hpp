@@ -16,6 +16,7 @@ public:
     bool end{false};
     bool is{false};
     bool dot{false};
+    std::string end_id{};
 
     std::vector<std::string> comments{};
     std::vector<std::string> content{};

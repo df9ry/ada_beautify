@@ -40,10 +40,6 @@ static void newLine(Scope& scope)
 static void handleEnd(const string& token, Document& doc)
 {
     Scope& scope = doc.scope();
-    // Copy what is already there:
-    newLine(scope);
-    // Output the end token with reduced indent:
-    scope.lineBuffer << doc.indent(-1) << token;
     scope.end = true;
     scope.is = false;
 }
@@ -51,24 +47,47 @@ static void handleEnd(const string& token, Document& doc)
 static void handleSemicolon(const string& token, Document& doc)
 {
     Scope& scope = doc.scope();
-    // Append token to buffer:
-    scope.lineBuffer << token;
-    // And output the line:
-    newLine(scope);
-    if (scope.end) { // Copy everything over to doc:
+    if (scope.end) {
+        // Copy what is already there:
+        newLine(scope);
+        // Output the end token with reduced indent:
+        if (scope.end_id == "case") {
+            scope.lineBuffer << doc.indent(-2) << "end "
+                             << scope.end_id << token;
+            scope.end = false;
+            copyOver(doc);
+            doc.closeScope();
+            Scope& scope2 = doc.scope();
+            copyOver(doc);
+            doc.closeScope();
+            Scope& scope3 = doc.scope();
+        } else {
+            scope.lineBuffer << doc.indent(-1) << "end "
+                             << scope.end_id << token;
+            scope.end = false;
+            copyOver(doc);
+            doc.closeScope();
+            Scope& scope2 = doc.scope();
+        }
         scope.end = false;
-        copyOver(doc);
-        doc.closeScope();
+    } else {
+        // Append token to buffer:
+        scope.lineBuffer << token;
+        // And output the line:
+        newLine(scope);
     }
-    scope.end = false;
 }
 
 static void handleIdentifier(const string& token, Document& doc) {
     Scope& scope = doc.scope();
-    if (scope.lineBuffer.str().empty())
-        scope.lineBuffer << doc.indent() << token;
-    else
-        scope.lineBuffer << (scope.dot ? "" : " ") << token;
+    if (scope.end) {
+        scope.end_id = token;
+    } else {
+        if (scope.lineBuffer.str().empty())
+            scope.lineBuffer << doc.indent() << token;
+        else
+            scope.lineBuffer << (scope.dot ? "" : " ") << token;
+    }
     scope.dot = false;
 }
 
@@ -108,17 +127,17 @@ static void handleBegin(const string& token, Document& doc) {
 static void handleLoop(const string& token, Document& doc) {
     Scope& scope = doc.scope();
     if (scope.end) { // Special case for "end loop"
-        scope.lineBuffer << " " << token;
-        return;
-    }
-    newLine(scope);
-    scope.lineBuffer << doc.indent(scope.is ? -1 : 0) << token;
-    newLine(scope);
-    if (scope.is) {
-        scope.is = false;
+        handleIdentifier(token, doc);
     } else {
-        copyOver(doc);
-        doc.openScope();
+        newLine(scope);
+        scope.lineBuffer << doc.indent(scope.is ? -1 : 0) << token;
+        newLine(scope);
+        if (scope.is) {
+            scope.is = false;
+        } else {
+            copyOver(doc);
+            doc.openScope();
+        }
     }
 }
 
@@ -169,6 +188,7 @@ static void handleArrow(const string& token, Document& doc) {
     newLine(scope);
     copyOver(doc);
     doc.openScope();
+    Scope& scope2 = doc.scope();
 }
 
 static void handleWhen(const string& token, Document& doc) {
@@ -176,7 +196,13 @@ static void handleWhen(const string& token, Document& doc) {
     if (!scope.is) {
         copyOver(doc);
         doc.closeScope();
+        Scope& scope2 = doc.scope();
     }
+    handleIdentifier(token, doc);
+}
+
+static void handleCase(const string& token, Document& doc) {
+    Scope& scope = doc.scope();
     handleIdentifier(token, doc);
 }
 
@@ -190,6 +216,7 @@ const Document::handlerMapType Document::handlerMap {
     { "and then",  handleAndThen   },
     { "or else",   handleAndThen   },
     { "when",      handleWhen      },
+    { "case",      handleCase      },
     { ";",         handleSemicolon },
     { ".",         handleDot       },
     { ",",         handleNoLeft    },
@@ -242,7 +269,7 @@ void Document::put(const Symbol& sym)
 
 const string Document::indent(int offset) const
 {
-    int count = (stack.size() + offset) * spacesPerLevel;
+    int count = (stack.size() + offset - 1) * spacesPerLevel;
     if (count < 0)
         count = 0;
     if (count > maxIndent)
@@ -275,13 +302,6 @@ Scope& Document::openScope()
     if (verbose)
         lines.push_back(
             string("--  << New Scope Level ") + to_string(level()) + " >>");
-    if (verbose > 1)
-        cerr << "--  << New Scope Level " << level() << " >>" << endl;
-    if (verbose > 2) {
-        for_each(lines.begin(), lines.end(), [] (auto line) {
-            cerr << "line = " << line << endl;
-        });
-    }
     return stack.top();
 }
 
@@ -289,10 +309,8 @@ void Document::closeScope()
 {
     if (stack.size() == 0)
         throw runtime_error("stack underflow");
+    stack.pop();      // On regular end
     if (verbose)
         lines.push_back(
-            string("--  << End Scope Level ") + to_string(level()) + " >>");
-    if (verbose > 1)
-        cerr << "--  << End Scope Level " << level() << " >>" << endl;
-    stack.pop();      // On regular end
+            string("--  << Cur Scope Level ") + to_string(level()) + " >>");
 }
