@@ -16,7 +16,11 @@ public:
     bool end{false};
     bool is{false};
     bool dot{false};
+    bool loop{false};
+    bool exit{false};
+    bool type{false};
     std::string end_id{};
+    int para{0};
 
     std::vector<std::string> comments{};
     std::vector<std::string> content{};

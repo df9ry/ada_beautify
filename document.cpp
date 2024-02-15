@@ -28,10 +28,10 @@ static void copyOver(Document& doc)
     scope.content.clear();
 }
 
-static void newLine(Scope& scope)
+static void newLine(Scope& scope, bool force = false)
 {
     string line = scope.lineBuffer.str();
-    if (!line.empty()) {
+    if (force || !line.empty()) {
         scope.content.push_back(line);
         scope.lineBuffer.str("");
     }
@@ -42,40 +42,6 @@ static void handleEnd(const string& token, Document& doc)
     Scope& scope = doc.scope();
     scope.end = true;
     scope.is = false;
-}
-
-static void handleSemicolon(const string& token, Document& doc)
-{
-    Scope& scope = doc.scope();
-    if (scope.end) {
-        // Copy what is already there:
-        newLine(scope);
-        // Output the end token with reduced indent:
-        if (scope.end_id == "case") {
-            scope.lineBuffer << doc.indent(-2) << "end "
-                             << scope.end_id << token;
-            scope.end = false;
-            copyOver(doc);
-            doc.closeScope();
-            Scope& scope2 = doc.scope();
-            copyOver(doc);
-            doc.closeScope();
-            Scope& scope3 = doc.scope();
-        } else {
-            scope.lineBuffer << doc.indent(-1) << "end "
-                             << scope.end_id << token;
-            scope.end = false;
-            copyOver(doc);
-            doc.closeScope();
-            Scope& scope2 = doc.scope();
-        }
-        scope.end = false;
-    } else {
-        // Append token to buffer:
-        scope.lineBuffer << token;
-        // And output the line:
-        newLine(scope);
-    }
 }
 
 static void handleIdentifier(const string& token, Document& doc) {
@@ -91,17 +57,71 @@ static void handleIdentifier(const string& token, Document& doc) {
     scope.dot = false;
 }
 
+static void handleSemicolon(const string& token, Document& doc)
+{
+    Scope& scope = doc.scope();
+    if (scope.para) {
+        if (scope.lineBuffer.str().empty())
+            scope.lineBuffer << doc.indent() << token;
+        else
+            scope.lineBuffer << token;
+    } else if (scope.end) {
+        // Copy what is already there:
+        newLine(scope);
+        // Output the end token with reduced indent:
+        if (scope.end_id == "case") {
+            scope.lineBuffer << doc.indent(-2) << "end "
+                             << scope.end_id << token;
+            scope.end = false;
+            scope.end_id = "";
+            copyOver(doc);
+            doc.closeScope();
+            Scope& scope2 = doc.scope();
+            copyOver(doc);
+            doc.closeScope();
+            Scope& scope3 = doc.scope();
+        } else if (scope.end_id == "") {
+            scope.lineBuffer << doc.indent(-1) << "end"
+                             << scope.end_id << token;
+            scope.end = false;
+            scope.end_id = "";
+            copyOver(doc);
+            doc.closeScope();
+            Scope& scope2 = doc.scope();
+        } else {
+            scope.lineBuffer << doc.indent(-1) << "end "
+                             << scope.end_id << token;
+            if (scope.end_id == "loop")
+                scope.loop = false;
+            scope.end = false;
+            scope.end_id = "";
+            copyOver(doc);
+            doc.closeScope();
+            Scope& scope2 = doc.scope();
+        }
+    } else {
+        // Append token to buffer:
+        scope.lineBuffer << token;
+        // And output the line:
+        newLine(scope);
+    }
+}
+
 static void handleIs(const string& token, Document& doc) {
     // Append the token:
     handleIdentifier(token, doc);
     Scope& scope = doc.scope();
-    // Start a new line:
-    newLine(scope);
-    // Copy over:
-    copyOver(doc);
-    // And start new scope:
-    Scope& newScope = doc.openScope();
-    newScope.is = true;
+    if (scope.type) {
+        scope.type = false;
+    } else {
+        // Start a new line:
+        newLine(scope);
+        // Copy over:
+        copyOver(doc);
+        // And start new scope:
+        Scope& newScope = doc.openScope();
+        newScope.is = true;
+    }
 }
 
 static void handleElse(const string& token, Document& doc) {
@@ -137,6 +157,8 @@ static void handleLoop(const string& token, Document& doc) {
         } else {
             copyOver(doc);
             doc.openScope();
+            Scope& scope2 = doc.scope();
+            scope2.loop = true;
         }
     }
 }
@@ -168,42 +190,100 @@ static void handleNoRight(const string& token, Document& doc) {
     scope.dot = true;
 }
 
-static void handleAndThen(const string& token, Document& doc) {
-    Scope& scope = doc.scope();
-    if (scope.lineBuffer.str().empty())
-        scope.lineBuffer << doc.indent() << token;
-    else
-        scope.lineBuffer << (scope.dot ? "" : " ") << token;
-    newLine(scope);
-    scope.lineBuffer << doc.indent(+1);
-    scope.dot = true;
-}
-
 static void handleArrow(const string& token, Document& doc) {
     Scope& scope = doc.scope();
-    if (scope.lineBuffer.str().empty())
-        scope.lineBuffer << doc.indent() << token;
-    else
-        scope.lineBuffer << (scope.dot ? "" : " ") << token;
-    newLine(scope);
-    copyOver(doc);
-    doc.openScope();
-    Scope& scope2 = doc.scope();
+    if (scope.para) {
+        handleIdentifier(token, doc);
+    } else {
+        if (scope.lineBuffer.str().empty())
+            scope.lineBuffer << doc.indent() << token;
+        else
+            scope.lineBuffer << (scope.dot ? "" : " ") << token;
+        newLine(scope);
+        copyOver(doc);
+        doc.openScope();
+        Scope& scope2 = doc.scope();
+    }
 }
 
 static void handleWhen(const string& token, Document& doc) {
     Scope& scope = doc.scope();
-    if (!scope.is) {
-        copyOver(doc);
-        doc.closeScope();
-        Scope& scope2 = doc.scope();
+    if (scope.para) {
+        handleIdentifier(token, doc);
+    } else {
+        if (!(scope.is || scope.loop || scope.exit)) {
+            copyOver(doc);
+            doc.closeScope();
+            Scope& scope2 = doc.scope();
+        }
+        scope.exit = false;
+        scope.loop = false;
+        scope.is = false;
+        handleIdentifier(token, doc);
     }
-    handleIdentifier(token, doc);
 }
 
 static void handleCase(const string& token, Document& doc) {
     Scope& scope = doc.scope();
     handleIdentifier(token, doc);
+}
+
+static void handleLabel(const string& token, Document& doc) {
+    Scope& scope = doc.scope();
+    if (scope.lineBuffer.str().empty())
+        scope.lineBuffer << doc.indent() << token;
+    else
+        scope.lineBuffer << token;
+    newLine(scope);
+}
+
+static void handleOPara(const string& token, Document& doc) {
+    handleNoRight(token, doc);
+    Scope& scope = doc.scope();
+    --scope.para;
+}
+
+static void handleCPara(const string& token, Document& doc) {
+    handleNoLeft(token, doc);
+    Scope& scope = doc.scope();
+    ++scope.para;
+}
+
+static void handleExit(const string& token, Document& doc) {
+    Scope& scope = doc.scope();
+    if (scope.lineBuffer.str().empty())
+        scope.lineBuffer << doc.indent() + token;
+    else
+        scope.lineBuffer << " " + token;
+    scope.exit = true;
+}
+
+static void handleType(const string& token, Document& doc) {
+    Scope& scope = doc.scope();
+    scope.type = true;
+}
+
+static void handleNlBefore(const string& token, Document& doc) {
+    Scope& scope = doc.scope();
+    copyOver(doc);
+    newLine(scope, true);
+    handleIdentifier(token, doc);
+}
+
+static void handleRecord(const string& token, Document& doc) {
+    Scope& scope = doc.scope();
+    if (scope.end) {
+        scope.end_id = "record";
+    } else if (scope.is) {
+        scope.is = false;
+        scope.lineBuffer << " " << token;
+    } else {
+        newLine(scope);
+        scope.lineBuffer << doc.indent() << token;
+        newLine(scope);
+        copyOver(doc);
+        doc.openScope();
+    }
 }
 
 const Document::handlerMapType Document::handlerMap {
@@ -213,17 +293,21 @@ const Document::handlerMapType Document::handlerMap {
     { "is",        handleIs        },
     { "loop",      handleLoop      },
     { "then",      handleBegin     },
-    { "and then",  handleAndThen   },
-    { "or else",   handleAndThen   },
     { "when",      handleWhen      },
     { "case",      handleCase      },
+    { "exit",      handleExit      },
+    { "type",      handleType      },
+    { "record",    handleRecord    },
+    { "package",   handleNlBefore  },
+    { "procedure", handleNlBefore  },
+    { "function",  handleNlBefore  },
     { ";",         handleSemicolon },
     { ".",         handleDot       },
     { ",",         handleNoLeft    },
-    { ")",         handleNoLeft    },
-    { "(",         handleNoRight   },
+    { ")",         handleCPara     },
+    { "(",         handleOPara     },
     { "<<",        handleNoRight   },
-    { ">>",        handleNoLeft    },
+    { ">>",        handleLabel     },
     { "=>",        handleArrow     },
 };
 

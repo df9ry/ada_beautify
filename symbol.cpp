@@ -222,14 +222,6 @@ const Symbol::Ref Symbol::get() {
             // This is new line
             next_sym = Symbol::Ref(new SymbolNewLine());
             return cur_sym;
-        case '\'':
-            sc->get_ch();
-            // This is a character constant:
-            next_sym = Symbol::Ref(new SymbolChar(static_cast<char>(sc->cur_ch)));
-            sc->get_ch();
-            if (sc->cur_ch == '\'')
-                sc->get_ch();
-            return cur_sym;
         case '#':
             {
                 sc->get_ch();
@@ -240,6 +232,15 @@ const Symbol::Ref Symbol::get() {
                 next_sym = Symbol::Ref(new SymbolByte(x));
                 return cur_sym;
             }
+        case '\'':
+        {
+            sc->get_ch();
+            next_sym = Symbol::Ref(new SymbolChar(static_cast<char>(sc->cur_ch)));
+            sc->get_ch();
+            if (sc->cur_ch == '\'')
+                sc->get_ch();
+            return cur_sym;
+        }
         case '"':
             {
                 std::stringstream ss;

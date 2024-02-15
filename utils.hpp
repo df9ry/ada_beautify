@@ -44,7 +44,7 @@ inline std::string to_hex(const unsigned char x) {
 
 inline bool is_tokenchar(const unsigned char x) {
     return ((x >= '0' && x <= '9') || (x >= 'a' && x <= 'z') ||
-            (x >= 'A' && x <= 'Z') || x == '_');
+            (x >= 'A' && x <= 'Z') || x == '_' || x == '\'');
 }
 
 #endif // UTILS_HPP
